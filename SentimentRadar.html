@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>量化情绪雷达 - Crypto Market Sentiment Radar</title>
+    
+    <!-- React and ReactDOM from CDN -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <!-- Babel Standalone for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            background: linear-gradient(180deg, #FAFAF9 0%, #F5F5F4 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        #root {
+            width: 100%;
+            max-width: 600px;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, createContext, useContext, useEffect } = React;
+
+        const translations = {
+            en: {
+                pageTitle: 'Market Sentiment Radar',
+                pageSubtitle: 'Real-time quantified sentiment analysis',
+                mssScore: 'MSS',
+                extremeFear: 'Extreme Fear',
+                fear: 'Fear',
+                neutral: 'Neutral',
+                optimistic: 'Optimistic',
+                extremeGreed: 'Extreme Greed',
+                extremeFearZone: 'Extreme Fear Zone (0-20)',
+                meaningLabel: 'Reading Explanation',
+                reportDate: 'Report Date',
+                updateTime: 'Last Update'
+            },
+            zh: {
+                pageTitle: '量化情绪雷达',
+                pageSubtitle: '实时量化情绪分析',
+                mssScore: 'MSS',
+                extremeFear: '极度恐惧',
+                fear: '恐惧',
+                neutral: '中性',
+                optimistic: '乐观',
+                extremeGreed: '极度贪婪',
+                extremeFearZone: '极度恐惧区间 (0-20)',
+                meaningLabel: '读数说明',
+                reportDate: '报告日期',
+                updateTime: '最后更新'
+            }
+        };
+
+        const LanguageContext = createContext();
+        const useLanguage = () => useContext(LanguageContext);
+        const LanguageProvider = ({ children }) => {
+            const [lang, setLang] = useState('zh');
+            const t = (key) => translations[lang][key] || key;
+            return <LanguageContext.Provider value={{ lang, setLang, t }}>{children}</LanguageContext.Provider>;
+        };
+
+        const useResponsive = () => {
+            const [width, setWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
+            useEffect(() => {
+                const h = () => setWidth(window.innerWidth);
+                window.addEventListener('resize', h);
+                return () => window.removeEventListener('resize', h);
+            }, []);
+            return { isMobile: width < 640 };
+        };
+
+        const LanguageToggle = () => {
+            const { lang, setLang } = useLanguage();
+            return (
+                <div style={{ display: 'flex', gap: '4px', background: '#F5F5F4', borderRadius: '8px', padding: '3px' }}>
+                    {['en', 'zh'].map(l => (
+                        <button key={l} onClick={() => setLang(l)} style={{
+                            padding: '8px 16px', fontSize: '13px', fontWeight: lang === l ? '600' : '400', 
+                            border: 'none', borderRadius: '6px', cursor: 'pointer', 
+                            background: lang === l ? '#FFF' : 'transparent', 
+                            color: lang === l ? '#1C1917' : '#78716C',
+                            transition: 'all 0.2s'
+                        }}>{l === 'en' ? 'EN' : '中文'}</button>
+                    ))}
+                </div>
+            );
+        };
+
+        const SentimentRadar = ({ score, date, meaning }) => {
+            const { t } = useLanguage();
+            const { isMobile } = useResponsive();
+            
+            const zones = [
+                { label: t('extremeFear'), range: [0, 20], color: '#DC2626', bg: '#FEE2E2' },
+                { label: t('fear'), range: [20, 40], color: '#F97316', bg: '#FFEDD5' },
+                { label: t('neutral'), range: [40, 60], color: '#A8A29E', bg: '#F5F5F4' },
+                { label: t('optimistic'), range: [60, 80], color: '#84CC16', bg: '#ECFCCB' },
+                { label: t('extremeGreed'), range: [80, 100], color: '#22C55E', bg: '#DCFCE7' },
+            ];
+            
+            const getColor = (s) => s < 20 ? '#DC2626' : s < 40 ? '#F97316' : s < 60 ? '#78716C' : s < 80 ? '#84CC16' : '#22C55E';
+            const getLabel = (s) => s < 20 ? t('extremeFear') : s < 40 ? t('fear') : s < 60 ? t('neutral') : s < 80 ? t('optimistic') : t('extremeGreed');
+            const currentZone = zones.find(z => score >= z.range[0] && score < z.range[1]) || zones[0];
+            const angle = -180 + (score / 100) * 180;
+
+            return (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '24px 0' }}>
+                    {/* 仪表盘 */}
+                    <div style={{ position: 'relative', width: isMobile ? 280 : 340, height: isMobile ? 160 : 190 }}>
+                        <svg viewBox="0 0 340 190" style={{ width: '100%', height: '100%' }}>
+                            {/* 背景弧线 */}
+                            <path d="M 20 170 A 150 150 0 0 1 320 170" fill="none" stroke="#F5F5F4" strokeWidth="36" strokeLinecap="round" />
+                            
+                            {/* 彩色区域 */}
+                            {zones.map((zone, i) => {
+                                const s = -180 + (zone.range[0] / 100) * 180;
+                                const e = -180 + (zone.range[1] / 100) * 180;
+                                const sr = (s * Math.PI) / 180;
+                                const er = (e * Math.PI) / 180;
+                                return (
+                                    <path 
+                                        key={i} 
+                                        d={`M ${170 + 150 * Math.cos(sr)} ${170 + 150 * Math.sin(sr)} A 150 150 0 0 1 ${170 + 150 * Math.cos(er)} ${170 + 150 * Math.sin(er)}`} 
+                                        fill="none" 
+                                        stroke={zone.color} 
+                                        strokeWidth="32" 
+                                        opacity={currentZone === zone ? 1 : 0.3}
+                                        style={{ transition: 'opacity 0.3s' }}
+                                    />
+                                );
+                            })}
+                            
+                            {/* 刻度 */}
+                            <text x="15" y="185" fontSize="11" fill="#A8A29E" fontWeight="500">0</text>
+                            <text x="162" y="35" fontSize="11" fill="#A8A29E" textAnchor="middle" fontWeight="500">50</text>
+                            <text x="310" y="185" fontSize="11" fill="#A8A29E" fontWeight="500">100</text>
+                            
+                            {/* 指针 */}
+                            <g style={{ transition: 'transform 0.6s cubic-bezier(0.4, 0, 0.2, 1)' }}>
+                                <line 
+                                    x1={170 - 25 * Math.cos(angle * Math.PI / 180)} 
+                                    y1={170 - 25 * Math.sin(angle * Math.PI / 180)} 
+                                    x2={170 + 120 * Math.cos(angle * Math.PI / 180)} 
+                                    y2={170 + 120 * Math.sin(angle * Math.PI / 180)} 
+                                    stroke="#1C1917" 
+                                    strokeWidth="4" 
+                                    strokeLinecap="round" 
+                                />
+                                <circle cx="170" cy="170" r="16" fill="#1C1917" />
+                                <circle cx="170" cy="170" r="8" fill="#FAFAF9" />
+                                <circle cx="170" cy="170" r="4" fill={getColor(score)} />
+                            </g>
+                        </svg>
+                    </div>
+                    
+                    {/* 数据显示 */}
+                    <div style={{ textAlign: 'center', marginTop: '12px', width: '100%' }}>
+                        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: '8px' }}>
+                            <span style={{ fontSize: '14px', color: '#78716C', fontWeight: '500' }}>{t('mssScore')}</span>
+                            <span style={{ 
+                                fontSize: isMobile ? '56px' : '64px', 
+                                fontWeight: '700', 
+                                color: getColor(score), 
+                                lineHeight: 1,
+                                fontVariantNumeric: 'tabular-nums'
+                            }}>{score}</span>
+                            <span style={{ fontSize: '20px', color: '#A8A29E', fontWeight: '500' }}>/ 100</span>
+                        </div>
+                        
+                        <div style={{ 
+                            fontSize: isMobile ? '20px' : '24px', 
+                            color: getColor(score), 
+                            marginTop: '12px', 
+                            fontWeight: '600' 
+                        }}>
+                            {getLabel(score)}
+                        </div>
+                        
+                        <div style={{ 
+                            fontSize: '12px', 
+                            color: currentZone.color, 
+                            marginTop: '12px', 
+                            padding: '8px 16px', 
+                            background: currentZone.bg, 
+                            borderRadius: '20px', 
+                            display: 'inline-block', 
+                            fontWeight: '600',
+                            border: `1px solid ${currentZone.color}20`
+                        }}>
+                            {t('extremeFearZone')}
+                        </div>
+                    </div>
+                    
+                    {/* 区域图例 */}
+                    <div style={{ 
+                        display: 'flex', 
+                        justifyContent: 'center', 
+                        gap: '8px', 
+                        marginTop: '24px', 
+                        flexWrap: 'wrap',
+                        width: '100%'
+                    }}>
+                        {zones.map((z, i) => (
+                            <div 
+                                key={i} 
+                                style={{ 
+                                    display: 'flex', 
+                                    alignItems: 'center', 
+                                    gap: '6px', 
+                                    padding: '8px 14px', 
+                                    background: currentZone === z ? z.bg : 'transparent', 
+                                    borderRadius: '20px',
+                                    border: currentZone === z ? `1px solid ${z.color}30` : '1px solid transparent',
+                                    transition: 'all 0.3s'
+                                }}
+                            >
+                                <div style={{ 
+                                    width: '12px', 
+                                    height: '12px', 
+                                    borderRadius: '50%', 
+                                    background: z.color, 
+                                    opacity: currentZone === z ? 1 : 0.4,
+                                    transition: 'opacity 0.3s'
+                                }} />
+                                <span style={{ 
+                                    fontSize: '12px', 
+                                    color: currentZone === z ? z.color : '#A8A29E', 
+                                    fontWeight: currentZone === z ? '600' : '400',
+                                    transition: 'all 0.3s'
+                                }}>
+                                    {z.label}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                    
+                    {/* 读数说明 */}
+                    {meaning && (
+                        <div style={{ 
+                            marginTop: '24px', 
+                            padding: '16px 20px', 
+                            background: currentZone.bg, 
+                            border: `2px solid ${currentZone.color}30`, 
+                            borderRadius: '12px', 
+                            fontSize: '13px', 
+                            color: currentZone.color === '#78716C' ? '#44403C' : currentZone.color, 
+                            lineHeight: 1.7, 
+                            textAlign: 'center',
+                            width: '100%',
+                            borderLeft: `4px solid ${currentZone.color}`
+                        }}>
+                            <div style={{ 
+                                fontSize: '11px', 
+                                fontWeight: '700', 
+                                textTransform: 'uppercase', 
+                                marginBottom: '8px',
+                                letterSpacing: '0.05em',
+                                opacity: 0.8
+                            }}>
+                                ⚠️ {t('meaningLabel')}
+                            </div>
+                            <div style={{ fontWeight: '500' }}>{meaning}</div>
+                        </div>
+                    )}
+                    
+                    {/* 日期信息 */}
+                    {date && (
+                        <div style={{ 
+                            marginTop: '16px', 
+                            fontSize: '12px', 
+                            color: '#A8A29E',
+                            textAlign: 'center'
+                        }}>
+                            {t('reportDate')}: {date}
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const MainContent = () => {
+            const { lang, t } = useLanguage();
+            const { isMobile } = useResponsive();
+            
+            // 当前市场数据
+            const marketData = {
+                score: 11,
+                date: '2026-02-05',
+                meaning: {
+                    en: 'MSS reading of 11 is deep in Extreme Fear zone (0-20), lowest of 2026. BTC breaking below $71K marks full capitulation. Historically such extreme readings precede major bottom formation, but short-term volatility risk remains extremely high.',
+                    zh: 'MSS 读数 11 深陷极度恐惧区间(0-20),为 2026 年最低。BTC 跌破 $71K 标志全面投降。历史上此类极端读数往往先于重大底部形成,但短期波动风险仍极高。'
+                }
+            };
+
+            return (
+                <div style={{ 
+                    background: '#FFF', 
+                    borderRadius: '20px', 
+                    padding: isMobile ? '24px 20px' : '32px 28px',
+                    boxShadow: '0 10px 40px rgba(0,0,0,0.08), 0 2px 8px rgba(0,0,0,0.04)',
+                    border: '1px solid #E7E5E4'
+                }}>
+                    {/* Header */}
+                    <div style={{ 
+                        display: 'flex', 
+                        justifyContent: 'space-between', 
+                        alignItems: 'center', 
+                        marginBottom: '24px',
+                        flexWrap: 'wrap',
+                        gap: '12px'
+                    }}>
+                        <div>
+                            <h1 style={{ 
+                                fontSize: isMobile ? '22px' : '28px', 
+                                fontWeight: '700', 
+                                margin: '0 0 6px', 
+                                color: '#0C0A09',
+                                letterSpacing: '-0.02em'
+                            }}>
+                                {t('pageTitle')}
+                            </h1>
+                            <p style={{ 
+                                fontSize: '14px', 
+                                color: '#78716C', 
+                                margin: 0,
+                                fontWeight: '500'
+                            }}>
+                                {t('pageSubtitle')}
+                            </p>
+                        </div>
+                        <LanguageToggle />
+                    </div>
+                    
+                    {/* 分隔线 */}
+                    <div style={{ 
+                        height: '1px', 
+                        background: 'linear-gradient(90deg, transparent, #E7E5E4, transparent)',
+                        marginBottom: '24px'
+                    }} />
+                    
+                    {/* 情绪雷达 */}
+                    <SentimentRadar 
+                        score={marketData.score} 
+                        date={marketData.date}
+                        meaning={marketData.meaning[lang]}
+                    />
+                    
+                    {/* Footer */}
+                    <div style={{ 
+                        marginTop: '24px',
+                        paddingTop: '20px',
+                        borderTop: '1px solid #F5F5F4',
+                        textAlign: 'center'
+                    }}>
+                        <div style={{ 
+                            fontSize: '11px', 
+                            color: '#D6D3D1',
+                            lineHeight: 1.6
+                        }}>
+                            {lang === 'zh' 
+                                ? '⚠️ 本指标仅供参考,不构成投资建议' 
+                                : '⚠️ For reference only, not investment advice'}
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        function CryptoSentimentRadar() {
+            return (
+                <LanguageProvider>
+                    <MainContent />
+                </LanguageProvider>
+            );
+        }
+
+        // Render the app
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<CryptoSentimentRadar />);
+    </script>
+</body>
+</html>
